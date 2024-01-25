@@ -1,10 +1,10 @@
 const dotenv = require("dotenv");
+dotenv.config();
+
 const connectToDatabase = require("./db");
 const app = require("./app");
 
-dotenv.config();
-
-const PORT = process.env.PORT || 8080
+const PORT = process.env.PORT;
 
 //* Connecting to the database and starting server
 connectToDatabase()
