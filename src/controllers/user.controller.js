@@ -206,4 +206,124 @@ const refreshToken = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { registerUser, loginUser, logoutUser, refreshToken };
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  const user = User.findById(req.user?._id);
+  const isPasswordMatched = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordMatched) {
+    throw new errFormat(401, "Incorrect password");
+  }
+
+  user.password = newPassword;
+  await user.save({ validateBeforeSave: false });
+
+  return res
+    .status(200)
+    .json(new resFormat(200, "Password changed successfully."));
+});
+
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new resFormat(200, "Current User fetched successfully", req.user));
+});
+
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullName, email, username } = req.body;
+
+  if (!fullName || !email || !username) {
+    throw new errFormat(400, "Please fill all the fields");
+  }
+
+  await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        fullName,
+        email,
+        username,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select({ password: 0 });
+
+  return res
+    .status(200)
+    .json(new resFormat(200, "Account updated successfully."));
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  const { avatarLocalPath } = req.file.path;
+
+  if (!avatarLocalPath) {
+    throw new errFormat(400, "Please upload an avatar");
+  }
+
+  const avatar = await cloudinaryUploader(avatarLocalPath);
+
+  if (!avatar.url) {
+    throw new Error(400, "Something went wrong while uploading avatar");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select({ password: 0 });
+
+  return res
+    .status(200)
+    .json(new resFormat(200, "Avatar updated successfully.", user));
+});
+
+const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const { coverImageLocalPath } = req.file.path;
+
+  if (!coverImageLocalPath) {
+    throw new errFormat(400, "Please upload a cover image");
+  }
+
+  const coverImage = await cloudinaryUploader(coverImageLocalPath);
+
+  if (!coverImage.url) {
+    throw new Error(400, "Something went wrong while uploading cover image");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImage.url,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select({ password: 0 });
+
+  return res
+    .status(200)
+    .json(new resFormat(200, "Cover image updated successfully.", user));
+});
+
+module.exports = {
+  registerUser,
+  loginUser,
+  logoutUser,
+  refreshToken,
+  changePassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateUserCoverImage,
+};
