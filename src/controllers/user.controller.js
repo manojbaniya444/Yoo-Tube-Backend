@@ -316,6 +316,74 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new resFormat(200, "Cover image updated successfully.", user));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username) {
+    throw new errFormat(400, "Please provide username");
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "Subscription",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "Subscription",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",
+        },
+        subscribedToCount: {
+          $size: "$subscribedTo",
+        },
+        isSubscribed: {
+          $cond: {
+            if: {
+              $in: [req.user?._id, "$subscribers.subscriber"],
+              then: true,
+              else: false,
+            },
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        password: 0,
+        refreshToken: 0,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    },
+  ]);
+  // console.log("Aggregate result: ", channel);
+
+  if (!channel?.length) {
+    throw new errFormat(404, "No channel found with provided username");
+  }
+
+  return res
+    .status(200)
+    .json(new resFormat(200, "Channel fetched successfully. ", channel[0]));
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -326,4 +394,5 @@ module.exports = {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverImage,
+  getUserChannelProfile,
 };
