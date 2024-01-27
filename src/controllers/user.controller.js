@@ -331,7 +331,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "Subscription",
+        from: "subscription",
         localField: "_id",
         foreignField: "channel",
         as: "subscribers",
@@ -384,6 +384,60 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     .json(new resFormat(200, "Channel fetched successfully. ", channel[0]));
 });
 
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const userId = req.user?._id;
+
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(userId),
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  if (!user?.length) {
+    throw new errFormat(404, "No user found with provided id");
+  }
+
+  return res
+    .status(200)
+    .json(new resFormat(200, "Watch history fetched", user[0].watchHistory));
+});
+
 module.exports = {
   registerUser,
   loginUser,
@@ -395,4 +449,5 @@ module.exports = {
   updateUserAvatar,
   updateUserCoverImage,
   getUserChannelProfile,
+  getWatchHistory,
 };
