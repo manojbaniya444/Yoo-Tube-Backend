@@ -4,6 +4,7 @@ const User = require("../models/user.model");
 const { cloudinaryUploader } = require("../utils/cloudinary");
 const resFormat = require("../utils/responseFormat");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -209,7 +210,7 @@ const refreshToken = asyncHandler(async (req, res) => {
 const changePassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
 
-  const user = User.findById(req.user?._id);
+  const user = await User.findById(req.user?._id);
   const isPasswordMatched = await user.isPasswordCorrect(oldPassword);
 
   if (!isPasswordMatched) {
@@ -233,7 +234,7 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullName, email, username } = req.body;
 
-  if (!fullName || !email || !username) {
+  if (!fullName && !email && !username) {
     throw new errFormat(400, "Please fill all the fields");
   }
 
@@ -257,7 +258,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 });
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
-  const { avatarLocalPath } = req.file.path;
+  const avatarLocalPath = req.file.path;
 
   if (!avatarLocalPath) {
     throw new errFormat(400, "Please upload an avatar");
@@ -287,7 +288,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
-  const { coverImageLocalPath } = req.file.path;
+  const coverImageLocalPath = req.file.path;
 
   if (!coverImageLocalPath) {
     throw new errFormat(400, "Please upload a cover image");
@@ -354,13 +355,11 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           $size: "$subscribedTo",
         },
         isSubscribed: {
-          $cond: {
-            if: {
-              $in: [req.user?._id, "$subscribers.subscriber"],
-              then: true,
-              else: false,
-            },
-          },
+          $cond: [
+            { $in: [req.user?._id, "$subscribers.subscriber"] },
+            true,
+            false,
+          ],
         },
       },
     },
